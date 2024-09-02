@@ -1,12 +1,14 @@
 // Object Detection
 void encoderISR();
+void runMotor();
+void returnToPosition();
 
 #include <Arduino.h>
 #include <AccelStepper.h>
 
 // Define pins numbers for Ultrasonic
 const int trigPin = 10; // Connect Trig pin in Ultrasonic Sensor to Arduino Pin 13
-const int echoPin = 9; // Connect Echo pin in Ultrasonic Sensor to Arduino Pin 13
+const int echoPin = 9;  // Connect Echo pin in Ultrasonic Sensor to Arduino Pin 13
 
 // Define variables for Ultrasonic
 long duration;
@@ -29,14 +31,15 @@ int speedMax = 1000; //?? Adjust as neccesary
 int stepAccel = 200; //?? Adjust as neccesary
 int runTime = 5000;
 
-//defining encoder pins for interupt
-volatile int encoderPosition = 0; //current position
-int currentTarget = 0; //Current target position
+// defining encoder pins for interupt
+volatile int encoderPosition = 0; // current position
+int currentTarget = 0;            // Current target position
 bool movingCCW = true;
 #define encoderPinA 2
 #define encoderPinB 3
-#define MAX_POSITION 1000
-#define MIN_POSITION 0
+#define TARGET_POSITION_1 0
+#define TARGET_POSITION_2 -500
+bool useTarget1 = true; // true to use TARGET_POSITION_1, false to use TARGET_POSITION_2
 volatile int lastStateA = 0;
 volatile int lastStateB = 0;
 
@@ -61,7 +64,7 @@ void setup()
   // set direction to CCW
   digitalWrite(dirPin, LOW);
 
-  //encoder set up
+  // encoder set up
   pinMode(encoderPinA, INPUT);
   pinMode(encoderPinB, INPUT);
 
@@ -126,8 +129,7 @@ void loop()
       {
         delay(20000);
         // needs to reset to a 180 degree using the encoder for accurate positioning
-
-
+        returnToPosition();
         digitalWrite(enablePin, LOW);
         delay(5000);
         digitalWrite(relayPin, LOW);
@@ -136,26 +138,86 @@ void loop()
   }
 }
 
-void encoderISR(){
+void encoderISR()
+{
   int stateA = digitalRead(encoderPinA);
   int stateB = digitalRead(encoderPinB);
 
-  if (stateA != lastStateA){
-    if (stateB != stateA){
+  if (stateA != lastStateA)
+  {
+    if (stateB != stateA)
+    {
       encoderPosition++;
-    }else{
+    }
+    else
+    {
       encoderPosition--;
     }
-
-  }else if (stateB != lastStateB){
-    if (stateA == stateB){
+  }
+  else if (stateB != lastStateB)
+  {
+    if (stateA == stateB)
+    {
       encoderPosition++;
-    } else {
+    }
+    else
+    {
       encoderPosition--;
     }
   }
 
   lastStateA = stateA;
   lastStateB = stateB;
+}
 
+void returnToPosition()
+{
+  // 2 positions bear in mind the readings will be - readings just take abs value
+  // 0 500
+  int newEncoderPos = abs(encoderPosition);
+
+  if (newEncoderPos == 0 || newEncoderPos == 500)
+  {
+    return;
+  }
+  else if (newEncoderPos > 0 && newEncoderPos < 500)
+  {
+    stepper.moveTo(TARGET_POSITION_2);
+    useTarget1 = false;
+  }
+  else if (newEncoderPos > 500)
+  {
+    stepper.moveTo(TARGET_POSITION_1);
+    useTarget1 = true;
+  }
+  runMotor();
+}
+
+void runMotor()
+{
+  int targetPosition;
+
+  if (useTarget1)
+  {
+    targetPosition = TARGET_POSITION_1;
+  }
+  else
+  {
+    targetPosition = TARGET_POSITION_2;
+  }
+
+  while (true)
+  {
+
+    stepper.run();
+
+    // check if the current encoder position is close to the target
+    if (abs(encoderPosition - targetPosition) < 10)
+    {
+      stepper.stop();
+      Serial.print("Reached target position");
+      break;
+    }
+    delay(10);
+  }
 }
