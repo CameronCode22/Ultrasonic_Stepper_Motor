@@ -1,0 +1,295 @@
+// Object Detection
+
+#include <Arduino.h>
+#include <AccelStepper.h>
+
+// Define pins numbers for Ultrasonic
+#define trigPin 10                    // Connect Trig pin in Ultrasonic Sensor to Arduino Pin 13
+#define echoPin 9                     // Connect Echo pin in Ultrasonic Sensor to Arduino Pin 13
+#define detectionDistance (uint8_t)10 // Ultrasonic detection distance
+#define relayPin 4
+
+// Defining pins for motor
+#define dirPin 13  // Direction DIR+ for driver motor
+#define stepPin 12 // stePin PUL+
+#define enablePin 11
+#define runTime (uint16_t)5000 // fixed time for initial motor runnning
+
+// interupt
+#define encoderPinA 2
+#define encoderPinB 3
+#define TARGET_POSITION_1 0
+#define TARGET_POSITION_2 -500
+
+// Define variables for Ultrasonic
+long duration;
+int distance;
+int safetyDistance;
+bool objectDetect;
+
+// defining terms for motor
+int speedMax = 1000; //?? Adjust as neccesary
+int stepAccel = 200; //?? Adjust as neccesary
+
+// defining encoder pins for interupt
+volatile int encoderPosition = 0; // current position
+bool useTarget1 = true;           // true to use TARGET_POSITION_1, false to use TARGET_POSITION_2
+volatile int lastStateA = 0;
+volatile int lastStateB = 0;
+
+// Initializing stepper object
+AccelStepper stepper(AccelStepper::DRIVER, stepPin, dirPin);
+
+void delay_millis(uint16_t delay_ms)
+{
+  uint32_t start_time = millis();
+  while (millis() - start_time < delay_ms)
+  {
+    // Wait for the specified duration
+  }
+}
+
+void delay_micro(uint32_t delay_us)
+{
+  uint32_t start_time = micros();
+  while (micros() - start_time < delay_us)
+  {
+    // Wait for the specified duration
+  }
+}
+
+void encoderISR()
+{
+  int stateA = digitalRead(encoderPinA);
+  int stateB = digitalRead(encoderPinB);
+
+  if (stateA != lastStateA)
+  {
+    if (stateB != stateA)
+    {
+      encoderPosition++;
+    }
+    else
+    {
+      encoderPosition--;
+    }
+  }
+  else if (stateB != lastStateB)
+  {
+    if (stateA == stateB)
+    {
+      encoderPosition++;
+    }
+    else
+    {
+      encoderPosition--;
+    }
+  }
+
+  // Handle max resolution of 1000
+  if (abs(encoderPosition) >= 999)
+  {
+    encoderPosition = 0;
+  }
+
+  lastStateA = stateA;
+  lastStateB = stateB;
+}
+
+void runMotor()
+{
+  int targetPosition;
+
+  if (useTarget1)
+  {
+    targetPosition = TARGET_POSITION_1;
+    Serial.println("Using Target Position 1");
+  }
+  else
+  {
+    targetPosition = TARGET_POSITION_2;
+    Serial.println("Using Target Position 2");
+  }
+
+
+  Serial.print("Target position: ");
+  Serial.println(targetPosition);
+  while (true)
+  {
+    stepper.run();
+    Serial.print("Current Encoder Position: ");
+    Serial.println(encoderPosition);
+
+    // check if the current encoder position is close to the target
+    Serial.print("target position: ");
+    Serial.println(targetPosition);
+    if (abs(encoderPosition - targetPosition) < 10)
+    {
+      stepper.stop();
+      Serial.println("Reached target position");
+      break;
+    }
+    delay(10); // fixed function name
+  }
+}
+
+void returnToPosition()
+{
+  int newEncoderPos = abs(encoderPosition);
+  Serial.print("New Encoder Position: ");
+  Serial.println(newEncoderPos);
+
+  if (newEncoderPos == 0 || newEncoderPos == 500)
+  {
+    Serial.println("Already at position 0 or 500. Returning.");
+    return;
+  }
+  else if (newEncoderPos > 0 && newEncoderPos < 500)
+  {
+    Serial.println("Moving to Target Position 2");
+    stepper.moveTo(TARGET_POSITION_2);
+    useTarget1 = false;
+  }
+  else if (newEncoderPos > 500)
+  {
+    Serial.println("Moving to Target Position 1");
+    stepper.moveTo(TARGET_POSITION_1);
+    useTarget1 = true;
+  }
+
+  runMotor();
+}
+
+void detectObject()
+{
+  Serial.println("Dtecting Object...");
+  // Clears the trigPin
+  digitalWrite(trigPin, LOW);
+  delay_micro(2);
+
+  // Sets the trigPin on HIGH state for 15 micro seconds
+  digitalWrite(trigPin, HIGH);
+  delay_micro(15);
+  digitalWrite(trigPin, LOW);
+
+  // Reads the echoPin, returns the sound wave travel time in microseconds
+  duration = pulseIn(echoPin, HIGH);
+
+  // Calculate the distance
+  distance = duration * 0.034 / 2;
+
+  // PRINTS DEBUG
+  Serial.print("Distance: ");
+  Serial.print(distance);
+  Serial.print("\n");
+
+  // find if the distance is within defined range
+  if (distance <= detectionDistance && distance > 0)
+  {
+    objectDetect = true;
+  }
+  else
+  {
+    objectDetect = false;
+  }
+}
+
+void setup()
+{
+  Serial.begin(9600);
+  Serial.println("Starting setup...");
+
+  pinMode(trigPin, OUTPUT); // Sets the trigPin as an Output
+  Serial.println("Trig pin set as OUTPUT");
+
+  pinMode(echoPin, INPUT); // Sets the echoPin as an Input
+  Serial.println("Echo pin set as INPUT");
+
+  pinMode(enablePin, OUTPUT);
+  digitalWrite(enablePin, HIGH); // NPN on the enable pin, sets to active
+  Serial.println("Enable pin set to HIGH");
+
+  // Initialise relay
+  pinMode(relayPin, OUTPUT);
+  digitalWrite(relayPin, LOW);
+  Serial.println("Relay pin initialized");
+
+  stepper.setMaxSpeed(speedMax);
+  stepper.setAcceleration(stepAccel);
+  Serial.println("Stepper max speed and acceleration set");
+
+  //pinMode(stepPin, OUTPUT);
+  pinMode(dirPin, OUTPUT);
+  Serial.println("Step and direction pins set as OUTPUT");
+
+  // set direction to CCW,
+  digitalWrite(dirPin, LOW);
+  //Serial.println("Direction set to CCW");
+
+  // encoder set up
+  pinMode(encoderPinA, INPUT);
+  pinMode(encoderPinB, INPUT);
+  Serial.println("Encoder pins initialized");
+
+  attachInterrupt(digitalPinToInterrupt(encoderPinA), encoderISR, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(encoderPinB), encoderISR, CHANGE);
+  Serial.println("Encoder interrupts attached");
+
+  Serial.println("Setup complete");
+}
+
+void loop()
+{
+  detectObject();
+  Serial.println("Object detected, entering loop");
+
+  if (objectDetect == true)
+  {
+    Serial.println("Object detected. Turning relay ON.");
+    digitalWrite(relayPin, HIGH); // Turn Relay on
+
+    Serial.println("Delaying for 3 seconds.");
+    delay_millis(3000); // 3-second delay
+
+    // Set the speed to 5% of the maximum speed
+    stepper.setSpeed(speedMax * 0.05);
+    unsigned long startTime = millis(); // Record the start time
+    Serial.print("Starting motor run at 5% speed for ");
+    Serial.print(runTime);
+    Serial.println(" milliseconds.");
+
+    while ((millis() - startTime) < ((unsigned long)runTime))
+    {                     // Run for `runTime` milliseconds
+      stepper.runSpeed(); // Move the motor at a constant speed
+    }
+
+    Serial.println("Changing motor speed to 10%.");
+    stepper.setSpeed(speedMax * 0.1);
+
+    Serial.print("Object detected before while: ");
+    Serial.print(objectDetect);
+    Serial.print("\n");
+    while (objectDetect == true)
+    {
+      stepper.runSpeed();
+      noInterrupts();
+      detectObject(); // Re-check for object
+      interrupts();
+      Serial.print("Object detected in while loop: ");
+      Serial.print(objectDetect);
+
+      if (objectDetect == false)
+      {
+        Serial.println("Object no longer detected. Delaying for 20 seconds.");
+        delay_millis(20000);
+        Serial.println("Resetting to 180 degrees and disabling relay.");
+        // Needs to reset to a 180-degree position using the encoder for accurate positioning
+        returnToPosition();
+        digitalWrite(enablePin, LOW);
+        delay_millis(5000);
+        digitalWrite(relayPin, LOW);
+        Serial.println("Relay turned OFF.");
+      }
+    }
+  }
+}

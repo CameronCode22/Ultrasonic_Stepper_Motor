@@ -256,44 +256,40 @@ void loop()
         Serial.print("Starting motor run at 5% speed for ");
         Serial.print(runTime);
         Serial.println(" milliseconds.");
-        unsigned long lastDetectionTime = 0;
-        const unsigned long detectionInterval = 2000; // 2 seconds
 
-        while (true)
+        while ((millis() - startTime) < ((unsigned long)runTime))
         {                       // Run for `runTime` milliseconds
             stepper.runSpeed(); // Move the motor at a constant speed
-            if ((millis() - startTime) < ((unsigned long)runTime))
-            {
-                stepper.setSpeed(speedMax * 0.1); // Set the new speed after runTime
-            }
-            if (millis() - lastDetectionTime >= detectionInterval)
-            {
-                lastDetectionTime = millis();
-                detectObject(); // Perform object detection
-                Serial.print("Object detected before while: ");
-                Serial.print(objectDetect);
-                Serial.print("\n");
-                stepper.setSpeed(speedMax * 0.55);
-            }
-            if (objectDetect == false)
-            {
-                stepper.stop();
-                break;
-            }
         }
 
-        //   // if (objectDetect == false)
-        //   // {
-        //   //   Serial.println("Object no longer detected. Delaying for 20 seconds.");
-        //   //   delay_millis(4000);
-        //   //   Serial.println("Resetting to 180 degrees and disabling relay.");
-        //   //   // Needs to reset to a 180-degree position using the encoder for accurate positioning
-        //   //   returnToPosition();
-        //   //   digitalWrite(enablePin, LOW);
-        //   //   delay_millis(5000);
-        //   //   digitalWrite(relayPin, LOW);
-        //   //   Serial.println("Relay turned OFF.");
-        //   // }
-        // }
+        Serial.println("Changing motor speed to 10%.");
+        stepper.setSpeed(speedMax * 0.1);
+
+        Serial.print("Object detected before while: ");
+        Serial.print(objectDetect);
+        Serial.print("\n");
+        while (objectDetect == true)
+        {
+            stepper.runSpeed();
+            // noInterrupts();
+            // detectObject(); // Re-check for object
+            // interrupts();
+            // Serial.print("Object detected in while loop: ");
+            // Serial.print(objectDetect);
+            // Serial.print("\n");
+
+            // if (objectDetect == false)
+            // {
+            //   Serial.println("Object no longer detected. Delaying for 20 seconds.");
+            //   delay_millis(4000);
+            //   Serial.println("Resetting to 180 degrees and disabling relay.");
+            //   // Needs to reset to a 180-degree position using the encoder for accurate positioning
+            //   returnToPosition();
+            //   digitalWrite(enablePin, LOW);
+            //   delay_millis(5000);
+            //   digitalWrite(relayPin, LOW);
+            //   Serial.println("Relay turned OFF.");
+            // }
+        }
     }
 }

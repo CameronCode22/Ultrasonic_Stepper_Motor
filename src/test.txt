@@ -1,0 +1,128 @@
+// #define encoderPinA 2
+// #define encoderPinB 3
+
+
+
+// #define PPR 600 // Cameron Check the motor encoder PPR
+// #define ANGLE_PER_PULSE (360.0 / PPR)
+// #define DEBOUNCE_DELAY 50
+
+
+
+// volatile int16_t position = 0;
+// volatile uint32_t last_interrupt_time = 0;
+
+
+
+// void setup() {
+// pinMode(encoderPinA, INPUT);
+// pinMode(encoderPinB, INPUT);
+// Serial.begin(9600);
+// attachInterrupt(digitalPinToInterrupt(encoderPinA), EncoderISR, CHANGE);
+// }
+
+
+
+// void loop() {
+// // Calculate the angle
+// float angle = position * ANGLE_PER_PULSE;
+
+
+
+// // Print the angle
+// Serial.print("Current Angle: ");
+// Serial.print(angle);
+// Serial.println(" degrees");
+
+
+
+// delay(100); // This delay is not to corrupt serial data flow to the PC
+// }
+
+
+
+// void EncoderISR() {
+// uint32_t interrupt_time = millis();
+
+
+
+// if (interrupt_time - last_interrupt_time > DEBOUNCE_DELAY) {
+// uint8_t b_state = digitalRead(encoderPinB);
+// if (HIGH == b_state)
+// ++position;
+// else
+// --position;
+
+
+
+// last_interrupt_time = interrupt_time;
+// }
+// }
+
+
+
+#define encoderPinA 2
+#define encoderPinB 3
+
+
+
+#define PPR 600
+#define ANGLE_PER_PULSE (360.0 / PPR)
+#define DEBOUNCE_DELAY 10
+
+
+
+volatile int16_t position = 0;
+volatile uint32_t last_interrupt_time = 0;
+
+
+
+void setup() {
+pinMode(encoderPinA, INPUT);
+pinMode(encoderPinB, INPUT);
+Serial.begin(9600);
+attachInterrupt(digitalPinToInterrupt(encoderPinA), EncoderISR, CHANGE);
+attachInterrupt(digitalPinToInterrupt(encoderPinB), EncoderISR, CHANGE);
+}
+
+
+
+void loop() {
+// Calculate the angle
+float angle = position * ANGLE_PER_PULSE;
+
+
+
+// Print the angle
+Serial.print("Current Angle: ");
+Serial.print(angle);
+Serial.println(" degrees");
+
+
+
+delay(100); // Delay to manage serial output
+}
+
+
+
+void EncoderISR() {
+uint32_t interrupt_time = millis();
+
+
+
+if (interrupt_time - last_interrupt_time > DEBOUNCE_DELAY) {
+uint8_t a_state = digitalRead(encoderPinA);
+uint8_t b_state = digitalRead(encoderPinB);
+
+
+
+if (a_state == b_state) // Both HIGH or both LOW means CW rotation
+++position;
+else // One HIGH, one LOW means CCW rotation
+--position;
+
+
+
+last_interrupt_time = interrupt_time;
+}
+}

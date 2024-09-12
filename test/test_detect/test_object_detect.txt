@@ -1,0 +1,53 @@
+#include <unity.h>
+
+#define DETECTION_DISTANCE 10 // Define the distance threshold as a constant
+
+bool DetectObject(int input)
+{
+    // Calculate the distance
+    int distance = input;
+
+    // Check if the distance is within the defined range
+    if (distance <= DETECTION_DISTANCE && distance > 0)
+    {
+        return true; // Object detected
+    }
+    else
+    {
+        return false; // Object not detected
+    }
+}
+
+// Optional setup and teardown functions
+void setUp(void)
+{
+    // Code to run before each test
+}
+
+void tearDown(void)
+{
+    // Code to run after each test
+}
+
+void test_positive_detection()
+{
+    for (int i = 0; i < 10; i++)
+    {
+        TEST_ASSERT_TRUE(DetectObject(5));
+    }
+}
+
+void test_negative_detection()
+{
+    TEST_ASSERT_FALSE(DetectObject(-3));
+}
+
+int main(int argc, char **argv)
+{
+    UNITY_BEGIN();
+    RUN_TEST(test_positive_detection);
+    RUN_TEST(test_negative_detection);
+    UNITY_END();
+
+    return 0;
+}

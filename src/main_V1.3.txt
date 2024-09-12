@@ -273,14 +273,23 @@ void loop()
                 Serial.print("Object detected before while: ");
                 Serial.print(objectDetect);
                 Serial.print("\n");
-                stepper.setSpeed(speedMax * 0.55);
-            }
-            if (objectDetect == false)
-            {
-                stepper.stop();
-                break;
-            }
+                }
         }
+        // Serial.println("Changing motor speed to 10%.");
+        // stepper.setSpeed(speedMax * 0.1);
+
+        // Serial.print("Object detected before while: ");
+        // Serial.print(objectDetect);
+        // Serial.print("\n");
+        // while (objectDetect == true)
+        // {
+        //   stepper.runSpeed();
+        //   // noInterrupts();
+        //   // detectObject(); // Re-check for object
+        //   // interrupts();
+        //   // Serial.print("Object detected in while loop: ");
+        //   // Serial.print(objectDetect);
+        //   // Serial.print("\n");
 
         //   // if (objectDetect == false)
         //   // {
